@@ -20,4 +20,8 @@
   <!-- System fonts -->
   <java-symbol type="array" name="config_fontPackages" />
 
+  <!-- Key Handler -->
+  <java-symbol type="array" name="config_deviceKeyHandlerLibs" />
+  <java-symbol type="array" name="config_deviceKeyHandlerClasses" />
+
 </resources>

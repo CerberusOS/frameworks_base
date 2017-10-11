@@ -35,4 +35,12 @@
     <string name="config_rat_3g" translatable="false">3G</string>
     <string name="config_rat_4g" translatable="false">4G</string>
 
+    <!-- Paths to the libraries that contain device specific key handlers -->
+    <string-array name="config_deviceKeyHandlerLibs" translatable="false">
+    </string-array>
+
+    <!-- Names of the key handler classes -->
+    <string-array name="config_deviceKeyHandlerClasses" translatable="false">
+    </string-array>
+
 </resources>
