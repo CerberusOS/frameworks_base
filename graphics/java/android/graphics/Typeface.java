@@ -82,19 +82,19 @@ public class Typeface {
             Typeface.class.getClassLoader(), nativeGetReleaseFunc(), 64);
 
     /** The default NORMAL typeface object */
-    public static final Typeface DEFAULT;
+    public static Typeface DEFAULT;
     /**
      * The default BOLD typeface object. Note: this may be not actually be
      * bold, depending on what fonts are installed. Call getStyle() to know
      * for sure.
      */
-    public static final Typeface DEFAULT_BOLD;
+    public static Typeface DEFAULT_BOLD;
     /** The NORMAL style of the default sans serif typeface. */
-    public static final Typeface SANS_SERIF;
+    public static Typeface SANS_SERIF;
     /** The NORMAL style of the default serif typeface. */
-    public static final Typeface SERIF;
+    public static Typeface SERIF;
     /** The NORMAL style of the default monospace typeface. */
-    public static final Typeface MONOSPACE;
+    public static Typeface MONOSPACE;
 
     static Typeface[] sDefaults;
 
@@ -102,9 +102,9 @@ public class Typeface {
      * Cache for Typeface objects for style variant. Currently max size is 3.
      */
     @GuardedBy("sStyledCacheLock")
-    private static final LongSparseArray<SparseArray<Typeface>> sStyledTypefaceCache =
+    private static LongSparseArray<SparseArray<Typeface>> sStyledTypefaceCache =
             new LongSparseArray<>(3);
-    private static final Object sStyledCacheLock = new Object();
+    private static Object sStyledCacheLock = new Object();
 
     /**
      * Cache for Typeface objects for weight variant. Currently max size is 3.
@@ -159,7 +159,7 @@ public class Typeface {
     // Value for weight and italic. Indicates the value is resolved by font metadata.
     // Must be the same as the C++ constant in core/jni/android/graphics/FontFamily.cpp
     /** @hide */
-    public static final int RESOLVE_BY_FONT_TABLE = -1;
+    public static int RESOLVE_BY_FONT_TABLE = -1;
     private static String DEFAULT_FAMILY = "sans-serif";
 
     // Style value for building typeface.
@@ -909,17 +909,26 @@ public class Typeface {
         for (int i = 0; i < families.length; i++) {
             ptrArray[i] = families[i].mNativePtr;
         }
-        return new Typeface(nativeCreateFromArray(
+		Typeface typeface =  new Typeface(nativeCreateFromArray(
                 ptrArray, RESOLVE_BY_FONT_TABLE, RESOLVE_BY_FONT_TABLE));
+        return typeface;
     }
 
     /**
      * This method is used by supportlib-v27.
      * TODO: Remove private API use in supportlib: http://b/72665240
      */
-    private static Typeface createFromFamiliesWithDefault(FontFamily[] families, int weight,
-                int italic) {
-        return createFromFamiliesWithDefault(families, DEFAULT_FAMILY, weight, italic);
+	private static Typeface createFromFamiliesWithDefault(FontFamily[] families,
+		int weight, int italic) {
+		long[] ptrArray = new long[families.length + sFallbackFonts.length];
+        for (int i = 0; i < families.length; i++) {
+            ptrArray[i] = families[i].mNativePtr;
+        }
+        for (int i = 0; i < sFallbackFonts.length; i++) {
+            ptrArray[i + families.length] = sFallbackFonts[i].mNativePtr;
+        }
+        Typeface typeface = new Typeface(nativeCreateFromArray(ptrArray, weight, italic));
+        return typeface;
     }
 
     /**
@@ -1011,7 +1020,7 @@ public class Typeface {
         final FontFamily family = new FontFamily(languageTags, variant);
         for (int i = 0; i < fonts.size(); i++) {
             final FontConfig.Font font = fonts.get(i);
-            final String fullPath = fontDir + font.getFontName();
+            final String fullPath = font.getFontName();
             ByteBuffer buffer = cache.get(fullPath);
             if (buffer == null) {
                 if (cache.containsKey(fullPath)) {
@@ -1350,12 +1359,12 @@ public class Typeface {
     }
     static {
 	init();
-        final ArrayMap<String, Typeface> systemFontMap = new ArrayMap<>();
-        final ArrayMap<String, FontFamily[]> systemFallbackMap = new ArrayMap<>();
+        ArrayMap<String, Typeface> systemFontMap = new ArrayMap<>();
+        ArrayMap<String, FontFamily[]> systemFallbackMap = new ArrayMap<>();
         buildSystemFallback("/system/etc/fonts.xml", "/system/fonts/", systemFontMap,
                 systemFallbackMap);
-        sSystemFontMap = Collections.unmodifiableMap(systemFontMap);
-        sSystemFallbackMap = Collections.unmodifiableMap(systemFallbackMap);
+        sSystemFontMap = systemFontMap;
+        sSystemFallbackMap = systemFallbackMap;
 
         try {
 
@@ -1377,6 +1386,12 @@ public class Typeface {
             DEFAULT_FAMILY = "sans-serif";
             setDefault(sSystemFontMap.get(DEFAULT_FAMILY));
         }
+
+        DEFAULT_INTERNAL         = create((String) null, 0);
+        DEFAULT_BOLD_INTERNAL    = create((String) null, Typeface.BOLD);
+        SANS_SERIF_INTERNAL      = create("sans-serif", 0);
+        SERIF_INTERNAL           = create("serif", 0);
+        MONOSPACE_INTERNAL       = create("monospace", 0);
 
         // Set up defaults and typefaces exposed in public API
         DEFAULT         = create((String) null, 0);
