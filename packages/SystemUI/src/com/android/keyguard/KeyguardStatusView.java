@@ -652,8 +652,14 @@ public class KeyguardStatusView extends GridLayout implements
     }
 
     private void updateSettings() {
+        boolean showClock = Settings.System.getIntForUser(getContext().getContentResolver(),
+                Settings.System.LOCKSCREEN_CLOCK, 1, UserHandle.USER_CURRENT) == 1;
+
         mClockSelection = Settings.System.getIntForUser(getContext().getContentResolver(),
-                Settings.System.LOCKSCREEN_CLOCK_SELECTION, 0, UserHandle.USER_CURRENT);
+               Settings.System.LOCKSCREEN_CLOCK_SELECTION, 0, UserHandle.USER_CURRENT);
+
+        mClockView = (TextClock) findViewById(R.id.clock_view);
+        mClockView.setVisibility(showClock ? View.VISIBLE : View.GONE);
 
         setStyle();
     }
