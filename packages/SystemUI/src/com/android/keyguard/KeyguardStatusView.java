@@ -380,6 +380,15 @@ public class KeyguardStatusView extends GridLayout implements
         } else if (mClockSelection == 6) {
             mClockView.setFormat12Hour(Html.fromHtml("<font color='#454545'>hh</font><br><font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">mm</font>"));
             mClockView.setFormat24Hour(Html.fromHtml("<font color='#454545'>kk</font><br><font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">mm</font>"));
+        } else if (mClockSelection == 9) {
+            mClockView.setFormat12Hour(Html.fromHtml("<font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">h:mm</font>"));
+            mClockView.setFormat24Hour(Html.fromHtml("<font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">kk:m</font>"));
+        } else if (mClockSelection == 10) {
+            mClockView.setFormat12Hour(Html.fromHtml("<font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">h</font>:mm"));
+            mClockView.setFormat24Hour(Html.fromHtml("<font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">kk</font>:mm"));
+        } else if (mClockSelection == 11) {
+            mClockView.setFormat12Hour(Html.fromHtml("h<font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">:mm</font>"));
+            mClockView.setFormat24Hour(Html.fromHtml("kk<font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">:mm</font>"));
         } else {
             mClockView.setFormat12Hour("hh\nmm");
             mClockView.setFormat24Hour("kk\nmm");
@@ -457,60 +466,59 @@ public class KeyguardStatusView extends GridLayout implements
             default:
                 mClockView.setVisibility(View.VISIBLE);
                 mCustomClockView.setVisibility(View.GONE);
-				mSpideyClockView.setVisibility(View.GONE);
-				mCustomNumClockView.setVisibility(View.GONE);
+		mSpideyClockView.setVisibility(View.GONE);
+		mCustomNumClockView.setVisibility(View.GONE);
                 break;
             case 1: // digital (bold)
+            case 9: // digital (accent full)
+            case 10: // digital (accent hour)
+	    case 11: // digital (accent minutes)
                 mClockView.setVisibility(View.VISIBLE);
                 mCustomClockView.setVisibility(View.GONE);
-				mSpideyClockView.setVisibility(View.GONE);
-				mCustomNumClockView.setVisibility(View.GONE);
+		mSpideyClockView.setVisibility(View.GONE);
+		mCustomNumClockView.setVisibility(View.GONE);
                 break;
             case 2: // custom analog
                 mCustomClockView.setVisibility(View.VISIBLE);
                 mClockView.setVisibility(View.GONE);
-				mSpideyClockView.setVisibility(View.GONE);
-				mCustomNumClockView.setVisibility(View.GONE);
+		mSpideyClockView.setVisibility(View.GONE);
+		mCustomNumClockView.setVisibility(View.GONE);
                 break;
             case 4: // sammy
                 mClockView.setVisibility(View.VISIBLE);
                 mCustomClockView.setVisibility(View.GONE);
-				mSpideyClockView.setVisibility(View.GONE);
-				mCustomNumClockView.setVisibility(View.GONE);
+		mSpideyClockView.setVisibility(View.GONE);
+		mCustomNumClockView.setVisibility(View.GONE);
                 break;
             case 5: // sammy (bold)
                 mClockView.setVisibility(View.VISIBLE);
                 mCustomClockView.setVisibility(View.GONE);
-				mSpideyClockView.setVisibility(View.GONE);
-				mCustomNumClockView.setVisibility(View.GONE);
+		mSpideyClockView.setVisibility(View.GONE);
+		mCustomNumClockView.setVisibility(View.GONE);
                 break;
             case 5: // sammy accent
-                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
-                       View.GONE) : View.VISIBLE);
+                mClockView.setVisibility(View.VISIBLE);
                 mCustomClockView.setVisibility(View.GONE);
-				mSpideyClockView.setVisibility(View.GONE);
-				mCustomNumClockView.setVisibility(View.GONE);
+		mSpideyClockView.setVisibility(View.GONE);
+		mCustomNumClockView.setVisibility(View.GONE);
                 break;
             case 6: // sammy accent
-                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
-                       View.GONE) : View.VISIBLE);
+                mClockView.setVisibility(View.VISIBLE);
                 mCustomClockView.setVisibility(View.GONE);
-				mSpideyClockView.setVisibility(View.GONE);
-				mCustomNumClockView.setVisibility(View.GONE);
+		mSpideyClockView.setVisibility(View.GONE);
+		mCustomNumClockView.setVisibility(View.GONE);
                 break;
             case 7: // spidey analog
-                mSpideyClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
-                       View.GONE) : View.VISIBLE);
+                mSpideyClockView.setVisibility(View.VISIBLE);
                 mClockView.setVisibility(View.GONE);
                 mCustomClockView.setVisibility(View.GONE);
-				mCustomNumClockView.setVisibility(View.GONE);
+		mCustomNumClockView.setVisibility(View.GONE);
                 break;
             case 8: // custom analog with numbers
-                mCustomNumClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
-                       View.GONE) : View.VISIBLE);
+                mCustomNumClockView.setVisibility(View.VISIBLE);
                 mClockView.setVisibility(View.GONE);
                 mCustomClockView.setVisibility(View.GONE);
-				mSpideyClockView.setVisibility(View.GONE);
+		mSpideyClockView.setVisibility(View.GONE);
                 break;
         }
     }
@@ -533,6 +541,9 @@ public class KeyguardStatusView extends GridLayout implements
                 mClockView.setGravity(Gravity.CENTER);
                 break;
             case 1: // digital (bold)
+            case 9: // digital (accent full)
+	    case 10: // digital (accent hour)
+	    case 11: // digital (accent minutes)
                 params.addRule(RelativeLayout.BELOW, R.id.clock_view);
                 mClockView.setSingleLine(true);
                 mClockView.setGravity(Gravity.CENTER);
