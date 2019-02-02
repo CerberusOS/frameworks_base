@@ -226,9 +226,6 @@ public class KeyguardStatusView extends GridLayout implements
 
     }
 
-    public void onThemeChanged(boolean useDarkTheme) {
-        mCustomClockView.onThemeChanged(useDarkTheme, true);
-    }
 
     /**
      * Moves clock and separator, adjusting margins when slice content changes.
@@ -411,7 +408,7 @@ public class KeyguardStatusView extends GridLayout implements
         } else if (mClockSelection == 1) {
             mClockView.setFormat12Hour(Html.fromHtml("<strong>h:</strong>mm"));
             mClockView.setFormat24Hour(Html.fromHtml("<strong>kk:</strong>mm"));
-        } else if (mClockSelection == 5) {
+        } else if (mClockSelection == 4) {
             mClockView.setFormat12Hour(Html.fromHtml("<strong>hh</strong><br>mm"));
             mClockView.setFormat24Hour(Html.fromHtml("<strong>kk</strong><br>mm"));
         } else if (mClockSelection == 5) {
@@ -688,12 +685,12 @@ public class KeyguardStatusView extends GridLayout implements
             case 2: // custom analog
                 params.addRule(RelativeLayout.BELOW, R.id.custom_clock_view);
                 break;
-            case 4: // sammy
+            case 3: // sammy
                 params.addRule(RelativeLayout.BELOW, R.id.clock_view);
                 mClockView.setSingleLine(false);
                 mClockView.setGravity(Gravity.CENTER);
                 break;
-            case 5: // sammy (bold)
+            case 4: // sammy (bold)
                 params.addRule(RelativeLayout.BELOW, R.id.clock_view);
                 mClockView.setSingleLine(false);
                 mClockView.setGravity(Gravity.CENTER);
