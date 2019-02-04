@@ -295,12 +295,10 @@ public class CustomAnalogClock extends View {
             minuteHand.setBounds(x - (w / 2), y - (h / 2), x + (w / 2), y + (h / 2));
         }
         if (mIsAmbientDisplay) {
+            minuteHand.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_ATOP);
+        } else{
             minuteHand.setColorFilter(getResources().getColor(
-                    android.R.color.white), PorterDuff.Mode.SRC_ATOP);
-        } else {
-            minuteHand.setColorFilter(mUseDarkTheme ? getResources().getColor(
-                    android.R.color.white) : getResources().getColor(
-                    android.R.color.black), PorterDuff.Mode.SRC_ATOP);
+                    R.color.analog_clock_hand_minute_color), PorterDuff.Mode.SRC_ATOP);
         }
         minuteHand.draw(canvas);
         canvas.restore();
