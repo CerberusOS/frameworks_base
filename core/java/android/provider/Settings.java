@@ -4668,14 +4668,6 @@ public final class Settings {
         /** @hide */
         private static final Validator NAVIGATION_BAR_ENABLED_VALIDATOR = BOOLEAN_VALIDATOR;
 
-        /**
-         * @hide
-         */
-        public static final String OMNI_SHOW_BATTERY_IMAGE = "status_bar_show_battery_image";
-
-        /** @hide */
-        private static final Validator OMNI_SHOW_BATTERY_IMAGE_VALIDATOR =
-                BOOLEAN_VALIDATOR;
 
         /**
          * @hide
@@ -5199,7 +5191,6 @@ public final class Settings {
             THEMING_BASE,
             THEMING_ACCENT,
             OMNI_USE_BOTTOM_GESTURE_NAVIGATION,
-            OMNI_SHOW_BATTERY_IMAGE,
             USE_SLIM_RECENTS,
             RECENTS_MAX_APPS,
             RECENT_PANEL_GRAVITY,
@@ -5392,7 +5383,6 @@ public final class Settings {
             PRIVATE_SETTINGS.add(KEY_APP_SWITCH_DOUBLE_TAP_ACTION);
             PRIVATE_SETTINGS.add(KEY_CAMERA_LONG_PRESS_ACTION);
             PRIVATE_SETTINGS.add(KEY_CAMERA_DOUBLE_TAP_ACTION);
-            PRIVATE_SETTINGS.add(OMNI_SHOW_BATTERY_IMAGE);
             PRIVATE_SETTINGS.add(USE_SLIM_RECENTS);
             PRIVATE_SETTINGS.add(RECENTS_MAX_APPS);
             PRIVATE_SETTINGS.add(RECENT_PANEL_GRAVITY);
@@ -5561,7 +5551,6 @@ public final class Settings {
             VALIDATORS.put(BUTTON_BRIGHTNESS, BUTTON_BRIGHTNESS_VALIDATOR);
             VALIDATORS.put(BUTTON_BRIGHTNESS_ENABLED, BUTTON_BRIGHTNESS_ENABLED_VALIDATOR);
             VALIDATORS.put(BUTTON_TIMEOUT, BUTTON_TIMEOUT_VALIDATOR);
-            VALIDATORS.put(OMNI_SHOW_BATTERY_IMAGE, OMNI_SHOW_BATTERY_IMAGE_VALIDATOR);
             // CERBERUSOS Settings end
             VALIDATORS.put(USE_SLIM_RECENTS, USE_SLIM_RECENTS_VALIDATOR);
             VALIDATORS.put(RECENTS_MAX_APPS, RECENTS_MAX_APPS_VALIDATOR);
