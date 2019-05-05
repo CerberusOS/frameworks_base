@@ -36,6 +36,7 @@ import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
@@ -185,6 +186,8 @@ public class KeyguardSliceView extends LinearLayout implements View.OnClickListe
         ContentResolver resolver = getContext().getContentResolver();
         mShowInfo = Settings.System.getIntForUser(resolver,
                 Settings.System.LOCKSCREEN_INFO, 1, UserHandle.USER_CURRENT) == 1;
+        boolean mClockSelection = Settings.System.getIntForUser(resolver,
+                Settings.System.LOCKSCREEN_CLOCK_SELECTION, 0, UserHandle.USER_CURRENT) == 15;
 
         if (!mHasHeader) {
             mTitle.setVisibility(GONE);
@@ -206,6 +209,14 @@ public class KeyguardSliceView extends LinearLayout implements View.OnClickListe
         final int subItemsCount = subItems.size();
         final int blendedColor = getTextColor();
         final int startIndex = mHasHeader ? 1 : 0; // First item is header; skip it
+        if (mClockSelection) {
+            mRow.setPaddingRelative((int) mContext.getResources().getDimension(R.dimen.custom_clock_left_padding), 0, 0, 0);
+            mRow.setGravity(Gravity.START);
+        }
+        else {
+            mRow.setPaddingRelative(0, 0, 0, 0);
+            mRow.setGravity(Gravity.CENTER);
+        }
         mRowAvailable = subItemsCount > 0;
         mRow.setVisibility(mRowAvailable  ? ((mShowInfo || mDarkAmount == 1) ?
                                View.VISIBLE : View.GONE) : View.GONE);
