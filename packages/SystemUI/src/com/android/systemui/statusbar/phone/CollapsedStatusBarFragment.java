@@ -21,20 +21,13 @@ import static android.app.StatusBarManager.DISABLE_SYSTEM_INFO;
 import android.annotation.Nullable;
 import android.app.Fragment;
 import android.app.StatusBarManager;
-import android.content.ContentResolver;
-import android.content.Context;
-import android.database.ContentObserver;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.UserHandle;
-import android.provider.Settings;
 import android.os.Parcelable;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
-import android.widget.ImageSwitcher;
 import android.widget.LinearLayout;
 
 import com.android.systemui.Dependency;
@@ -43,8 +36,6 @@ import com.android.systemui.R;
 import com.android.systemui.SysUiServiceProvider;
 import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.phone.StatusBarIconController.DarkIconManager;
-import com.android.systemui.statusbar.phone.TickerView;
-import com.android.systemui.statusbar.policy.Clock;
 import com.android.systemui.statusbar.policy.DarkIconDispatcher;
 import com.android.systemui.statusbar.policy.EncryptionHelper;
 import com.android.systemui.statusbar.policy.KeyguardMonitor;
@@ -67,15 +58,13 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
     private KeyguardMonitor mKeyguardMonitor;
     private NetworkController mNetworkController;
     private LinearLayout mSystemIconArea;
-    private Clock mClockView;
+    private View mClockView;
     private View mNotificationIconAreaInner;
+    private View mNetworkTrafficHolder;
     private int mDisabled1;
     private StatusBar mStatusBarComponent;
     private DarkIconManager mDarkIconManager;
     private View mOperatorNameFrame;
-
-    // CERBERUSOS additions
-    private View mBatteryBar;
 
     private SignalCallback mSignalCallback = new SignalCallback() {
         @Override
@@ -84,38 +73,12 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
         }
     };
 
-    private final Handler mHandler = new Handler();
-
-    private class CerberusOSSettingsObserver extends ContentObserver {
-        CerberusOSSettingsObserver(Handler handler) {
-            super(handler);
-        }
-
-        void observe() {
-            mContentResolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.STATUS_BAR_SHOW_TICKER),
-                    false, this, UserHandle.USER_ALL);
-        }
-
-        @Override
-        public void onChange(boolean selfChange) {
-            updateSettings(true);
-        }
-    }
-    private CerberusOSSettingsObserver mCerberusOSSettingsObserver;
-
-    private int mTickerEnabled;
-    private ContentResolver mContentResolver;
-    private View mTickerViewFromStub;
-
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mContentResolver = getContext().getContentResolver();
         mKeyguardMonitor = Dependency.get(KeyguardMonitor.class);
         mNetworkController = Dependency.get(NetworkController.class);
         mStatusBarComponent = SysUiServiceProvider.getComponent(getContext(), StatusBar.class);
-        mCerberusOSSettingsObserver = new CerberusOSSettingsObserver(mHandler);
     }
 
     @Override
@@ -136,14 +99,12 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
         mDarkIconManager.setShouldLog(true);
         Dependency.get(StatusBarIconController.class).addIconGroup(mDarkIconManager);
         mSystemIconArea = mStatusBar.findViewById(R.id.system_icon_area);
-        mClockView = (Clock) mStatusBar.findViewById(R.id.clock);
-        mBatteryBar = mStatusBar.findViewById(R.id.battery_bar);
+        mClockView = mStatusBar.findViewById(R.id.clock);
+        mNetworkTrafficHolder = mStatusBar.findViewById(R.id.network_traffic_holder);
         showSystemIconArea(false);
         showClock(false);
         initEmergencyCryptkeeperText();
         initOperatorName();
-        mCerberusOSSettingsObserver.observe();
-        updateSettings(false);
     }
 
     @Override
@@ -261,24 +222,20 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
 
     public void hideSystemIconArea(boolean animate) {
         animateHide(mSystemIconArea, animate);
-        animateHide(mBatteryBar, animate);
+        animateHide(mNetworkTrafficHolder, animate);
     }
 
     public void showSystemIconArea(boolean animate) {
         animateShow(mSystemIconArea, animate);
-        animateShow(mBatteryBar, animate);
+        animateShow(mNetworkTrafficHolder, animate);
     }
 
     public void hideClock(boolean animate) {
-        if (mClockView.isClockVisible()) {
-            animateHiddenState(mClockView, clockHiddenMode(), animate);
-        }
+        animateHiddenState(mClockView, clockHiddenMode(), animate);
     }
 
     public void showClock(boolean animate) {
-        if (mClockView.isClockVisible()) {
-            animateShow(mClockView, animate);
-        }
+        animateShow(mClockView, animate);
     }
 
     /**
@@ -386,28 +343,6 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
         if (getResources().getBoolean(R.bool.config_showOperatorNameInStatusBar)) {
             ViewStub stub = mStatusBar.findViewById(R.id.operator_name);
             mOperatorNameFrame = stub.inflate();
-        }
-    }
-
-    public void updateSettings(boolean animate) {
-        mTickerEnabled = Settings.System.getIntForUser(mContentResolver,
-                Settings.System.STATUS_BAR_SHOW_TICKER, 0,
-                UserHandle.USER_CURRENT);
-        initTickerView();
-    }
-
-    private void initTickerView() {
-        if (mTickerEnabled != 0) {
-            View tickerStub = mStatusBar.findViewById(R.id.ticker_stub);
-            if (mTickerViewFromStub == null && tickerStub != null) {
-                mTickerViewFromStub = ((ViewStub) tickerStub).inflate();
-            }
-            TickerView tickerView = (TickerView) mStatusBar.findViewById(R.id.tickerText);
-            ImageSwitcher tickerIcon = (ImageSwitcher) mStatusBar.findViewById(R.id.tickerIcon);
-            mStatusBarComponent.createTicker(
-                    mTickerEnabled, getContext(), mStatusBar, tickerView, tickerIcon, mTickerViewFromStub);
-        } else {
-            mStatusBarComponent.disableTicker();
         }
     }
 }
