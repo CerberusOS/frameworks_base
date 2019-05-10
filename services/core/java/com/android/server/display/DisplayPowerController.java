@@ -21,6 +21,7 @@ import android.animation.ObjectAnimator;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.ParceledListSlice;
 import android.content.res.Resources;
@@ -48,13 +49,12 @@ import android.util.MathUtils;
 import android.util.Slog;
 import android.util.TimeUtils;
 import android.view.Display;
-
+import com.android.server.am.CerberusService;
 import com.android.internal.app.IBatteryStats;
 import com.android.server.LocalServices;
 import com.android.server.am.BatteryStatsService;
 import com.android.server.policy.WindowManagerPolicy;
 import com.android.server.lights.LightsManager;
-
 import java.io.PrintWriter;
 
 /**
@@ -99,6 +99,8 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
     private static final int COLOR_FADE_ON_ANIMATION_DURATION_MILLIS = 250;
     private static final int COLOR_FADE_OFF_ANIMATION_DURATION_MILLIS = 400;
 
+    private static final int SCREEN_OFF_DELAY_MILLIS = 1000;
+
     private static final int MSG_UPDATE_POWER_STATE = 1;
     private static final int MSG_PROXIMITY_SENSOR_DEBOUNCED = 2;
     private static final int MSG_SCREEN_ON_UNBLOCKED = 3;
@@ -127,6 +129,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
     private static final int REPORTED_TO_POLICY_SCREEN_TURNING_ON = 1;
     private static final int REPORTED_TO_POLICY_SCREEN_ON = 2;
     private static final int REPORTED_TO_POLICY_SCREEN_TURNING_OFF = 3;
+    private static final int REPORTED_TO_POLICY_SCREEN_DOZE = 4;
 
     private final Object mLock = new Object();
 
@@ -141,9 +144,6 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
 
     // Battery stats.
     private final IBatteryStats mBatteryStats;
-
-    // The lights service.
-    private final LightsManager mLights;
 
     // The sensor manager.
     private final SensorManager mSensorManager;
@@ -366,6 +366,14 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
     private ObjectAnimator mColorFadeOffAnimator;
     private RampAnimator<DisplayPowerState> mScreenBrightnessRampAnimator;
 
+    // Screen-off animation
+    private int mScreenOffAnimation;
+    static final int SCREEN_OFF_FADE = 0;
+    static final int SCREEN_OFF_CRT = 1;
+    static final int SCREEN_OFF_SCALE = 2;
+
+    private CerberusService mCerberusService;
+
     /**
      * Creates the display power controller.
      */
@@ -378,7 +386,6 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
         mCallbacks = callbacks;
 
         mBatteryStats = BatteryStatsService.getService();
-        mLights = LocalServices.getService(LightsManager.class);
         mSensorManager = sensorManager;
         mWindowManagerPolicy = LocalServices.getService(WindowManagerPolicy.class);
         mBlanker = blanker;
@@ -428,14 +435,14 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                     1, 1);
 
             int[] ambientBrighteningThresholds = resources.getIntArray(
-                    com.android.internal.R.array.config_ambientBrighteningThresholds);
-            int[] ambientDarkeningThresholds = resources.getIntArray(
-                    com.android.internal.R.array.config_ambientDarkeningThresholds);
-            int[] ambientThresholdLevels = resources.getIntArray(
-                    com.android.internal.R.array.config_ambientThresholdLevels);
+		    com.android.internal.R.array.config_ambientBrighteningThresholds);
+ 	    int[] ambientDarkeningThresholds = resources.getIntArray(
+		    com.android.internal.R.array.config_ambientDarkeningThresholds);
+	    int[] ambientThresholdLevels = resources.getIntArray(
+		    com.android.internal.R.array.config_ambientThresholdLevels);
             HysteresisLevels ambientBrightnessThresholds = new HysteresisLevels(
                     ambientBrighteningThresholds, ambientDarkeningThresholds,
-                    ambientThresholdLevels);
+		    ambientThresholdLevels);
 
             int[] screenBrighteningThresholds = resources.getIntArray(
                     com.android.internal.R.array.config_screenBrighteningThresholds);
@@ -445,7 +452,6 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                     com.android.internal.R.array.config_screenThresholdLevels);
             HysteresisLevels screenBrightnessThresholds = new HysteresisLevels(
                     screenBrighteningThresholds, screenDarkeningThresholds, screenThresholdLevels);
-
 
             long brighteningLightDebounce = resources.getInteger(
                     com.android.internal.R.integer.config_autoBrightnessBrighteningLightDebounce);
@@ -612,11 +618,53 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
         }
     }
 
+    private int getScreenAnimationModeForDisplayState(int displayState) {
+        switch (mScreenOffAnimation) {
+            case SCREEN_OFF_FADE:
+                return ScreenStateAnimator.MODE_FADE;
+            case SCREEN_OFF_CRT:
+                if (displayState == Display.STATE_OFF) {
+                    return ScreenStateAnimator.MODE_COOL_DOWN;
+                } else {
+                    return USE_COLOR_FADE_ON_ANIMATION ? ScreenStateAnimator.MODE_WARM_UP
+                            : ScreenStateAnimator.MODE_FADE;
+                }
+            case SCREEN_OFF_SCALE:
+                if (displayState == Display.STATE_OFF) {
+                    return ScreenStateAnimator.MODE_SCALE_DOWN;
+                } else {
+                    return ScreenStateAnimator.MODE_FADE;
+                }
+            default:
+                return ScreenStateAnimator.MODE_FADE;
+        }
+    }
+
     private void initialize() {
         // Initialize the power state object for the default display.
         // In the future, we might manage multiple displays independently.
-        mPowerState = new DisplayPowerState(mBlanker,
-                mColorFadeEnabled ? new ColorFade(Display.DEFAULT_DISPLAY) : null);
+        final ContentResolver cr = mContext.getContentResolver();
+        final ContentObserver observer = new ContentObserver(mHandler) {
+            @Override
+            public void onChange(boolean selfChange, Uri uri) {
+                mScreenOffAnimation = Settings.System.getIntForUser(cr,
+                        Settings.System.SCREEN_OFF_ANIMATION,
+                        SCREEN_OFF_FADE, UserHandle.USER_CURRENT);
+                if (mPowerState != null) {
+                    mPowerState.setScreenStateAnimator(mScreenOffAnimation);
+                }
+            }
+        };
+        cr.registerContentObserver(Settings.System.getUriFor(
+                Settings.System.SCREEN_OFF_ANIMATION),
+                false, observer, UserHandle.USER_ALL);
+        mScreenOffAnimation = Settings.System.getIntForUser(cr,
+                Settings.System.SCREEN_OFF_ANIMATION,
+                SCREEN_OFF_FADE, UserHandle.USER_CURRENT);
+
+        mPowerState = new DisplayPowerState(mBlanker, mScreenOffAnimation);
+
+        mCerberusService = LocalServices.getService(CerberusService.class);
 
         if (mColorFadeEnabled) {
             mColorFadeOnAnimator = ObjectAnimator.ofFloat(
@@ -731,9 +779,9 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                 } else {
                     state = Display.STATE_DOZE;
                 }
-                if (!mAllowAutoBrightnessWhileDozingConfig) {
+                //if (!mAllowAutoBrightnessWhileDozingConfig) {
                     brightness = mPowerRequest.dozeScreenBrightness;
-                }
+                //}
                 break;
             case DisplayPowerRequest.POLICY_VR:
                 state = Display.STATE_VR;
@@ -786,12 +834,6 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
         // Use zero brightness when screen is off.
         if (state == Display.STATE_OFF) {
             brightness = PowerManager.BRIGHTNESS_OFF;
-            mLights.getLight(LightsManager.LIGHT_ID_BUTTONS).setBrightness(brightness);
-        }
-
-        // Disable button lights when dozing
-        if (state == Display.STATE_DOZE || state == Display.STATE_DOZE_SUSPEND) {
-            mLights.getLight(LightsManager.LIGHT_ID_BUTTONS).setBrightness(PowerManager.BRIGHTNESS_OFF);
         }
 
         // Always use the VR brightness when in the VR state.
@@ -807,7 +849,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
         }
 
         final boolean autoBrightnessEnabledInDoze =
-                mAllowAutoBrightnessWhileDozingConfig && Display.isDozeState(state);
+                /*mAllowAutoBrightnessWhileDozingConfig &&*/ Display.isDozeState(state);
         final boolean autoBrightnessEnabled = mPowerRequest.useAutoBrightness
                     && (state == Display.STATE_ON || autoBrightnessEnabledInDoze)
                     && brightness < 0
@@ -903,7 +945,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
 
         // Use default brightness when dozing unless overridden.
         if (brightness < 0 && Display.isDozeState(state)) {
-            brightness = mScreenBrightnessDozeConfig;
+            //brightness = mScreenBrightnessDozeConfig;
         }
 
         // Apply manual brightness.
@@ -927,6 +969,18 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
             mAppliedDimming = false;
         }
 
+
+/*
+        boolean readerMode = false;
+        if( mCerberusService != null ) {
+            readerMode = mCerberusService.isReaderMode();
+            if( readerMode ) {
+                final int readerBrightness = (int) (brightness * 0.5);
+                brightness = Math.max(readerBrightness, mScreenBrightnessRangeMinimum);
+                Slog.i(TAG, "ReaderMode: brightness" + brightness);
+            }
+        }
+*/
         // If low power mode is enabled, scale brightness by screenLowPowerBrightnessFactor
         // as long as it is above the minimum threshold.
         if (mPowerRequest.lowPowerMode) {
@@ -944,6 +998,11 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
             slowChange = false;
             mAppliedLowPower = false;
         }
+
+
+        //if (DEBUG) {
+            Slog.d(TAG, "updateDisplayPowerState: "  + mPowerRequest + ", brightness=" + brightness);
+        //}
 
         // Animate the screen brightness when the screen is on or dozing.
         // Skip the animation when the screen is off or suspended or transition to/from VR.
@@ -1006,7 +1065,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                 && !mScreenBrightnessRampAnimator.isAnimating();
 
         // Notify policy about screen turned on.
-        if (ready && state != Display.STATE_OFF
+        if (ready && state == Display.STATE_OFF
                 && mReportedScreenStateToPolicy == REPORTED_TO_POLICY_SCREEN_TURNING_ON) {
             setReportedScreenState(REPORTED_TO_POLICY_SCREEN_ON);
             mWindowManagerPolicy.screenTurnedOn();
@@ -1113,6 +1172,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
 
     private boolean setScreenState(int state, boolean reportOnly) {
         final boolean isOff = (state == Display.STATE_OFF);
+        cancelDelayedScreenOff();
         if (mPowerState.getScreenState() != state) {
 
             // If we are trying to turn screen off, give policy a chance to do something before we
@@ -1160,8 +1220,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
             unblockScreenOff();
             mWindowManagerPolicy.screenTurnedOff();
             setReportedScreenState(REPORTED_TO_POLICY_SCREEN_OFF);
-        }
-        if (!isOff && mReportedScreenStateToPolicy == REPORTED_TO_POLICY_SCREEN_OFF) {
+        } else if (!isOff && mReportedScreenStateToPolicy == REPORTED_TO_POLICY_SCREEN_OFF) {
             setReportedScreenState(REPORTED_TO_POLICY_SCREEN_TURNING_ON);
             if (mPowerState.getColorFadeLevel() == 0.0f) {
                 blockScreenOn();
@@ -1169,10 +1228,41 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                 unblockScreenOn();
             }
             mWindowManagerPolicy.screenTurningOn(mPendingScreenOnUnblocker);
+        } else if( state == Display.STATE_ON && mReportedScreenStateToPolicy == REPORTED_TO_POLICY_SCREEN_DOZE )  {
+            setReportedScreenState(REPORTED_TO_POLICY_SCREEN_TURNING_ON);
+            if (mPowerState.getColorFadeLevel() == 0.0f) {
+                 blockScreenOn();
+            } else {
+                unblockScreenOn();
+            }
+            mWindowManagerPolicy.screenTurningOn(mPendingScreenOnUnblocker);
+        } else if( (mReportedScreenStateToPolicy != REPORTED_TO_POLICY_SCREEN_DOZE) && ( state == Display.STATE_DOZE || state == Display.STATE_DOZE_SUSPEND ) ) {
+            setReportedScreenState(REPORTED_TO_POLICY_SCREEN_DOZE);
         }
+        
 
         // Return true if the screen isn't blocked.
         return mPendingScreenOnUnblocker == null;
+    }
+
+    private final Runnable mScreenOffTask = new Runnable() {
+        @Override
+        public void run() {
+            final boolean updateNeeded = mPowerState.getScreenState() != Display.STATE_OFF;
+            setScreenState(Display.STATE_OFF);
+            if (updateNeeded) {
+                sendUpdatePowerState();
+            }
+        }
+    };
+
+    private void setScreenOffDelayed() {
+        cancelDelayedScreenOff();
+        mHandler.postDelayed(mScreenOffTask, SCREEN_OFF_DELAY_MILLIS);
+    }
+
+    private void cancelDelayedScreenOff() {
+        mHandler.removeCallbacks(mScreenOffTask);
     }
 
     private void setReportedScreenState(int state) {
@@ -1221,7 +1311,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
             // Skip the screen off animation and add a black surface to hide the
             // contents of the screen.
             mPowerState.prepareColorFade(mContext,
-                    mColorFadeFadesConfig ? ColorFade.MODE_FADE : ColorFade.MODE_WARM_UP);
+                    getScreenAnimationModeForDisplayState(Display.STATE_ON));
             if (mColorFadeOffAnimator != null) {
                 mColorFadeOffAnimator.end();
             }
@@ -1254,9 +1344,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                 if (mPowerState.getColorFadeLevel() == 1.0f) {
                     mPowerState.dismissColorFade();
                 } else if (mPowerState.prepareColorFade(mContext,
-                        mColorFadeFadesConfig ?
-                                ColorFade.MODE_FADE :
-                                        ColorFade.MODE_WARM_UP)) {
+                        getScreenAnimationModeForDisplayState(Display.STATE_ON))) {
                     mColorFadeOnAnimator.start();
                 } else {
                     mColorFadeOnAnimator.end();
@@ -1353,13 +1441,12 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
             if (mPowerState.getColorFadeLevel() == 0.0f) {
                 // Turn the screen off.
                 // A black surface is already hiding the contents of the screen.
-                setScreenState(Display.STATE_OFF);
+                setScreenOffDelayed();
                 mPendingScreenOff = false;
                 mPowerState.dismissColorFadeResources();
             } else if (performScreenOffTransition
                     && mPowerState.prepareColorFade(mContext,
-                            mColorFadeFadesConfig ?
-                                    ColorFade.MODE_FADE : ColorFade.MODE_COOL_DOWN)
+                            getScreenAnimationModeForDisplayState(Display.STATE_OFF))
                     && mPowerState.getScreenState() != Display.STATE_OFF) {
                 // Perform the screen off animation.
                 mColorFadeOffAnimator.start();

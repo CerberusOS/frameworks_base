@@ -6117,10 +6117,9 @@ message MetricsEvent {
     // OS: P
     FIELD_AUTOFILL_SESSION_ID = 1456;
 
-<<<<<<< HEAD
     // ACTION: Custom CERBERUSOS metrics
     CERBERUSOS_METRICS = 10000;
-=======
+
     // FIELD: Device USB overheat alarm trigger.
     // CATEGORY: GLOBAL_SYSTEM_UI
     // OS: P
@@ -6128,7 +6127,6 @@ message MetricsEvent {
 
     // NOTIFICATION_SINCE_INTERRUPTION_MILLIS added to P
     // NOTIFICATION_INTERRUPTION added to P
->>>>>>> 11a03ad1a055493276f1f77c8a033e546dafbd65
 
     CUSTOM_QUICK_TILES = 9001;
     // ---- End P Constants, all P constants go above this line ----
