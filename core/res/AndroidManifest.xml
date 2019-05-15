@@ -609,6 +609,9 @@
     <!-- Screenrecord -->
     <protected-broadcast android:name="org.omnirom.omnirecord.ACTION_START" />
 
+    <!-- Cerberus Manager -->
+    <protected-broadcast android:name="ACTION_BRIGHTNESS_CHANGED" />
+
     <!-- ====================================================================== -->
     <!--                          RUNTIME PERMISSIONS                           -->
     <!-- ====================================================================== -->
