@@ -42,8 +42,9 @@ public class AODTile extends QSTileImpl<BooleanState> {
 
     @Override
     public boolean isAvailable() {
-        return mContext.getResources().getBoolean(
-                com.android.internal.R.bool.config_dozeAlwaysOnDisplayAvailable);
+        //return mContext.getResources().getBoolean(
+                //com.android.internal.R.bool.config_dozeAlwaysOnDisplayAvailable);
+	return true;
     }
 
     @Override
