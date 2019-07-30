@@ -2857,32 +2857,20 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         // TODO> Create a setting helper to centralize navigation bar settings.
         final boolean defaultToNavigationBar = res
                 .getBoolean(com.android.internal.R.bool.config_defaultToNavigationBar);
-        final int navBarEnabled = Settings.System.getIntForUser(resolver,
-                Settings.System.NAVIGATION_BAR_ENABLED, -1,
-                        UserHandle.USER_CURRENT);
+        final boolean navBarEnabled = Settings.System.getIntForUser(resolver,
+                Settings.System.NAVIGATION_BAR_ENABLED, defaultToNavigationBar ? 1 : 0,
+                        UserHandle.USER_CURRENT) == 1;
         if (mDeviceHardwareKeys != 0) {
-            Slog.d(TAG, "setInitialDisplaySize: set qemu.hw.mainkeys=" + (navBarEnabled == 1 ? "0" : "1"));
-            SystemProperties.set("qemu.hw.mainkeys", navBarEnabled == 1 ? "0" : "1");
+            SystemProperties.set("qemu.hw.mainkeys", navBarEnabled ? "0" : "1");
         }
 
         // Allow a system property to override this. Used by the emulator.
         // See also hasNavigationBar().
-
-        if( navBarEnabled == -1 ) {
-            mNavBarEnabled = defaultToNavigationBar ? true : false;
-            String navBarOverride = SystemProperties.get("qemu.hw.mainkeys");
-            if ("1".equals(navBarOverride)) {
-                mHasNavigationBar = false;
-            } else if ("0".equals(navBarOverride)) {
-                mHasNavigationBar = true;
-            }
-
-            Settings.System.putIntForUser(resolver,
-                                Settings.System.NAVIGATION_BAR_ENABLED, mHasNavigationBar? 1 : 0, UserHandle.USER_CURRENT);
-
-        } else {
-            mNavBarEnabled = navBarEnabled == 1;
-            mHasNavigationBar = mNavBarEnabled;
+        String navBarOverride = SystemProperties.get("qemu.hw.mainkeys");
+        if ("1".equals(navBarOverride)) {
+            mHasNavigationBar = false;
+        } else if ("0".equals(navBarOverride)) {
+            mHasNavigationBar = true;
         }
 
         // For demo purposes, allow the rotation of the HDMI display to be controlled.
@@ -3021,20 +3009,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             final boolean defaultToNavigationBar = resources
                     .getBoolean(com.android.internal.R.bool.config_defaultToNavigationBar);
 
-            final int navBarEnabledSetting = Settings.System.getIntForUser(resolver,
-                    Settings.System.NAVIGATION_BAR_ENABLED, -1,
-                            UserHandle.USER_CURRENT);
-
-            boolean navBarEnabled = false;
-            if( navBarEnabledSetting == -1 ) navBarEnabled = defaultToNavigationBar;
-            else navBarEnabled = navBarEnabledSetting == 1;
+            final boolean navBarEnabled = Settings.System.getIntForUser(resolver,
+                    Settings.System.NAVIGATION_BAR_ENABLED, defaultToNavigationBar ? 1 : 0,
+                            UserHandle.USER_CURRENT) == 1;
 
             final boolean buttonBrightnessEnabled = Settings.System.getIntForUser(resolver,
                     Settings.System.BUTTON_BRIGHTNESS_ENABLED, 0, UserHandle.USER_CURRENT) == 1;
             if (navBarEnabled != mNavBarEnabled) {
                 mNavBarEnabled = navBarEnabled;
                 if (mDeviceHardwareKeys != 0) {
-                    Slog.d(TAG, "updateSettings: set qemu.hw.mainkeys=" + (mNavBarEnabled ? "0" : "1"));
                     SystemProperties.set("qemu.hw.mainkeys", mNavBarEnabled ? "0" : "1");
                     if (!mNavBarEnabled && buttonBrightnessEnabled) {
                         Settings.System.putInt(resolver,
